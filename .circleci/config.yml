@@ -1,0 +1,69 @@
+version: 2.1
+
+orbs:
+  on-demand-runner: cci-labs/on-demand-runner@1.0.0
+
+jobs:
+  test-micro-speech:
+    machine: true
+    resource_class: crowley-namespace/<< pipeline.id >>
+    steps:
+      - checkout
+      - run:
+          name: Set Environment Up
+          command: |
+            {
+              echo "export PATH=\$PATH:/opt/armcompiler/bin"
+              echo "export PATH=\$PATH:/opt/gcc-arm-none-eabi-10-2020-q4-major/bin"
+              echo "export PATH=\$PATH:/opt/FVP_ARM_Std_Library/FVP_MPS2"
+              echo "export PATH=\$PATH:/opt/FVP_Corstone_SSE-300/models/Linux64_GCC-6.4"
+              echo "export CMSIS_PACK_ROOT=/home/ubuntu/packs"
+              echo "export CMSIS_COMPILER_ROOT=/opt/cbuild/etc"
+              echo "export CMSIS_BUILD_ROOT=/opt/cbuild/bin"
+              echo "export PVLIB_HOME=/opt/FM/FastModelsPortfolio_11.16"
+              echo "export IRIS_HOME=/opt/FM/FastModelsPortfolio_11.16/Iris"
+              echo "export PYTHONPATH=/opt/FM/FastModelsPortfolio_11.16/lib/python2.7:/opt/FM/FastModelsPortfolio_11.16/Iris/Python:/opt/FM/FastModelsPortfolio_11.16/lib/python2.7:/opt/FM/FastModelsPortfolio_11.16/Iris/Python"
+              echo "export MAXCORE_HOME=/opt/FM/FastModelsTools_11.16"
+              echo "export SYSTEMC_HOME=/opt/FM/SystemC/Accellera/SystemC"
+              echo "export PATH=/opt/cbuild/bin:\$PATH"
+              echo "export ARMLMD_LICENSE_FILE=/opt/data.dat"
+              echo "export PATH=\$PATH:/opt/VHT"
+              echo "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/opt/VHT"
+              echo "export ARMCOMPILER6_CLANGOPT=-Wno-license-management"
+              echo "export ARMCOMPILER6_LINKOPT=--diag_suppress=9931"
+              echo "export ARMCOMPILER6_FROMELFOPT=--diag_suppress=9931"
+              echo "export ARMCOMPILER6_ASMOPT=--diag_suppress=9931"
+            } >> $BASH_ENV
+
+      - run:
+          name: Get dependencies
+          command: cpackget pack add -f packlist --agree-embedded-license || true
+          working_directory: ./Platform_FVP_Corstone_SSE-300_Ethos-U55/
+
+      - run:
+          name: Build the micro_speech example
+          command: cbuild.sh microspeech.Example.cprj
+          working_directory: ./Platform_FVP_Corstone_SSE-300_Ethos-U55/
+
+      - run:
+          name: Run the micro_speech example
+          command: ./run_example.sh
+          working_directory: ./Platform_FVP_Corstone_SSE-300_Ethos-U55/
+
+workflows:
+  micro_speech:
+    jobs:
+      - on-demand-runner/deploy:
+          name: "Deploy ARM Virtual Hardware"
+          resource_class: << pipeline.id >>
+          context: aws-creds
+      - test-micro-speech:
+          name: "Build and Run Micro Speech Example"
+          requires:
+            - "Deploy ARM Virtual Hardware"
+      - on-demand-runner/destroy:
+          name: "Terminate ARM Virtual Hardware"
+          resource_class: << pipeline.id >>
+          context: aws-creds
+          requires:
+            - "Build and Run Micro Speech Example"
