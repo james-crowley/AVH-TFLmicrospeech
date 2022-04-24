@@ -1,12 +1,9 @@
 version: 2.1
 
-orbs:
-  on-demand-runner: cci-labs/on-demand-runner@1.0.0
-
 jobs:
   test-micro-speech:
     machine: true
-    resource_class: crowley-namespace/<< pipeline.id >>
+    resource_class: crowley-namespace/arm-virtual-hardware-demo
     steps:
       - checkout
       - run:
@@ -53,17 +50,5 @@ jobs:
 workflows:
   micro_speech:
     jobs:
-      - on-demand-runner/deploy:
-          name: "Deploy ARM Virtual Hardware"
-          resource_class: << pipeline.id >>
-          context: aws-creds
       - test-micro-speech:
           name: "Build and Run Micro Speech Example"
-          requires:
-            - "Deploy ARM Virtual Hardware"
-      - on-demand-runner/destroy:
-          name: "Terminate ARM Virtual Hardware"
-          resource_class: << pipeline.id >>
-          context: aws-creds
-          requires:
-            - "Build and Run Micro Speech Example"
